@@ -4,7 +4,7 @@ const app = express();
 const client = require('./zooKeeperClient');
 const ZooKeeper = require('zookeeper');
 
-const port = 5001;
+const port = process.env.PORT;
 
 
 
