@@ -29,7 +29,7 @@ class ZkClient {
       const _masterPath = await this.createPath(`${this.masterPath}/`, data, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
       this.myPathForLeaderSelection = this.trimMypath(_masterPath);
 console.log(_masterPath,222)
-      this.myPathForTaskId = await this.createPath(`/bm/email-rows/${process.env.NAME}`, 0, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
+      this.myPathForTaskId = await this.createPath(`/bm/email-rows/${process.env.NAME}-`, 0, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
 
       await this.watchBm();
     };
