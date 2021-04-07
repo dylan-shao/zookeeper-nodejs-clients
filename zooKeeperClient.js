@@ -14,6 +14,8 @@ const config = {
 class ZkClient {
   constructor() {
     this.client = new ZooKeeper(config);
+    // 控制多少个实例加入zk后才启动计算
+    this.BARRIER_SIZE = 3;
   }
 
   init() {
@@ -39,17 +41,22 @@ class ZkClient {
 
   }
 
+  async reCalculateLoad() {
+    console.log("re-calculating~~~~");
+  }
+
   async watchBm() {
-    const [children, stat] = await this.client.w_get_children2( '/bm', async(a,b,c ) => {
-      console.log(a,b,c, 123)
+    const [children, stat] = await this.client.w_get_children2( '/bm', async() => {
       await this.watchBm();
     });
     const childrenSort = children.sort();
     if (childrenSort[0] === this.myPath) {
       console.log(`I am the master: ${this.myPath}`)
+      if (stat && stat.numChildren > this.BARRIER_SIZE) {
+        // 增加timestamp，防止并发
+        this.reCalculateLoad();
+      }
     }
-    console.log(children,childrenSort[0],this.myPath,'children');
-    console.log(stat, 'stat');
   }
 
   trimMypath(path) {
