@@ -17,7 +17,7 @@ class ZkClient {
     this.client = new ZooKeeper(config);
     // 控制多少个实例加入zk后才启动计算
     this.BARRIER_SIZE = 3;
-    this.masterPath = '/bm/master/';
+    this.masterPath = '/bm/master';
   }
 
   init() {
@@ -26,9 +26,9 @@ class ZkClient {
     const connectCallBack  = async () => {
 
       const data = 'hello world 11';
-      const _masterPath = await this.createPath(this.masterPath, data, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
+      const _masterPath = await this.createPath(`${this.masterPath}/`, data, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
       this.myPathForLeaderSelection = this.trimMypath(_masterPath);
-
+console.log(_masterPath,222)
       this.myPathForTaskId = await this.createPath(`/bm/email-rows/${process.env.NAME}`, 0, NODE_TYPE_MAPPING.ZOO_EPHEMERAL);
 
       await this.watchBm();
@@ -63,21 +63,28 @@ class ZkClient {
   }
 
   async watchBm() {
-    const [children, stat] = await this.client.w_get_children2( '/bm', async() => {
-      await this.watchBm();
-    });
-    const childrenSort = children.sort();
-    if (childrenSort[0] === this.myPathForLeaderSelection) {
-      console.log(`I am the master: ${this.myPathForLeaderSelection}`)
-      if (stat && stat.numChildren > this.BARRIER_SIZE) {
-        // 增加timestamp，防止并发
-        this.reCalculateLoad();
+    try {
+      console.log(444)
+      const [children, stat] = await this.client.w_get_children2(this.masterPath, async() => {
+        await this.watchBm();
+      });
+      const childrenSort = children.sort();
+      console.log(this.myPathForLeaderSelection, childrenSort[0], 1111)
+      if (childrenSort[0] === this.myPathForLeaderSelection) {
+        console.log(`I am the master: ${this.myPathForLeaderSelection}`)
+        if (stat && stat.numChildren > this.BARRIER_SIZE) {
+          // 增加timestamp，防止并发
+          this.reCalculateLoad();
+        }
       }
+    } catch(e) {
+      console.log(`watchBm error ${e}`);
     }
+   
   }
 
   trimMypath(path) {
-    return path.split(this.masterPath)[1];
+    return path.split(`${this.masterPath}/`)[1];
   }
 
   async createPath(path, data, nodeType) {
