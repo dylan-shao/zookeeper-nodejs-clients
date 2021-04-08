@@ -29,8 +29,9 @@ class ZkClient {
     const connectCallBack  = async () => {
 
       // 选举master的path，依赖ZOO_EPHEMERAL_SEQUENTIAL
-      const _masterPath = await this.createPath(`${this.masterElectionPath}/`, '', NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
-      this.myPathForLeaderSelection = ZkClient.trimMypath(_masterPath);
+      const _masterPath = await this.createPath(`${this.masterElectionPath}/`, 0, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
+      console.log(_masterPath, 234234)
+      this.myPathForLeaderSelection = this._trimMypath(_masterPath);
 
       // 存task的path，貌似可以和上面的path结合使用一个
       // 这里用ZOO_EPHEMERAL_SEQUENTIAL的原因是，加一个随机数防止名称一样，否则停一个client，5s内再启动会报node exists（5s应该是zk的存活检测时间）
@@ -48,7 +49,7 @@ class ZkClient {
     this.client.on('close', closeCallBack)
   }
 
-  static async isMaster(children) {
+  _isMaster(children) {
     const childrenSort = children.sort();
     console.log(this.myPathForLeaderSelection, childrenSort[0], 1111)
     return childrenSort[0] === this.myPathForLeaderSelection;
@@ -76,7 +77,7 @@ class ZkClient {
         await this.watchBm();
       });
       
-      if (ZkClient.isMaster(children)) {
+      if (this._isMaster(children)) {
         console.log(`I am the master: ${this.myPathForLeaderSelection}`)
         if (stat && stat.numChildren > this.BARRIER_SIZE) {
           // 增加timestamp，防止并发
@@ -89,7 +90,7 @@ class ZkClient {
    
   }
 
-  static trimMypath(path) {
+  _trimMypath(path) {
     return path.split(`${this.masterElectionPath}/`)[1];
   }
 
