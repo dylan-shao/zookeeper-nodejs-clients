@@ -1,8 +1,7 @@
 
 const express = require('express');
 const app = express();
-const client = require('./zooKeeperClient');
-const ZooKeeper = require('zookeeper');
+require('./zkClient');
 
 const port = process.env.PORT;
 
