@@ -17,7 +17,10 @@ class ZkClient {
     this.client = new ZooKeeper(config);
     // 控制多少个实例加入zk后才启动计算
     this.BARRIER_SIZE = 3;
-    this.masterPath = '/bm/master';
+
+    // 选举master用的path
+    this.masterElectionPath = '/bm/master';
+    this.taskAssignPath = '/bm/task';
   }
 
   init() {
@@ -25,10 +28,13 @@ class ZkClient {
 
     const connectCallBack  = async () => {
 
-      const data = 'hello world 11';
-      const _masterPath = await this.createPath(`${this.masterPath}/`, data, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
-      this.myPathForLeaderSelection = this.trimMypath(_masterPath);
-      this.myPathForTaskId = await this.createPath(`/bm/email-rows/${process.env.NAME}`, 0, NODE_TYPE_MAPPING.ZOO_EPHEMERAL);
+      // 选举master的path，依赖ZOO_EPHEMERAL_SEQUENTIAL
+      const _masterPath = await this.createPath(`${this.masterElectionPath}/`, '', NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
+      this.myPathForLeaderSelection = ZkClient.trimMypath(_masterPath);
+
+      // 存task的path，貌似可以和上面的path结合使用一个
+      // 这里用ZOO_EPHEMERAL_SEQUENTIAL的原因是，加一个随机数防止名称一样，否则停一个client，5s内再启动会报node exists（5s应该是zk的存活检测时间）
+      this.myPathForTaskId = await this.createPath(`${this.taskAssignPath}/${process.env.NAME}`, 0, NODE_TYPE_MAPPING.ZOO_EPHEMERAL_SEQUENTIAL);
 
       await this.watchBm();
     };
@@ -42,11 +48,13 @@ class ZkClient {
     this.client.on('close', closeCallBack)
   }
 
-  async checkIfMaster() {
-
+  static async isMaster(children) {
+    const childrenSort = children.sort();
+    console.log(this.myPathForLeaderSelection, childrenSort[0], 1111)
+    return childrenSort[0] === this.myPathForLeaderSelection;
   }
 
-  async reCalculateLoad(numChildren) {
+  static async reCalculateLoad(numChildren) {
     console.log("re-calculating~~~~");
     const timestamp = Date.parse(new Date());
     const allEmails = (new Array(20)).fill("test@mokahr.com");
@@ -64,16 +72,15 @@ class ZkClient {
   async watchBm() {
     try {
       console.log(444)
-      const [children, stat] = await this.client.w_get_children2(this.masterPath, async() => {
+      const [children, stat] = await this.client.w_get_children2(this.masterElectionPath, async() => {
         await this.watchBm();
       });
-      const childrenSort = children.sort();
-      console.log(this.myPathForLeaderSelection, childrenSort[0], 1111)
-      if (childrenSort[0] === this.myPathForLeaderSelection) {
+      
+      if (ZkClient.isMaster(children)) {
         console.log(`I am the master: ${this.myPathForLeaderSelection}`)
         if (stat && stat.numChildren > this.BARRIER_SIZE) {
           // 增加timestamp，防止并发
-          this.reCalculateLoad();
+          ZkClient.reCalculateLoad();
         }
       }
     } catch(e) {
@@ -82,8 +89,8 @@ class ZkClient {
    
   }
 
-  trimMypath(path) {
-    return path.split(`${this.masterPath}/`)[1];
+  static trimMypath(path) {
+    return path.split(`${this.masterElectionPath}/`)[1];
   }
 
   async createPath(path, data, nodeType) {
@@ -100,6 +107,7 @@ class ZkClient {
 
 const zkClient = new ZkClient();
 zkClient.init();
+
 
 
 
