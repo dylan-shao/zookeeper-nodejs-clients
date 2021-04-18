@@ -1,3 +1,4 @@
+// some of the constants not exported by the library(eg: ZOO_EPHEMERAL_SEQUENTIAL), so I am "exporting" them here or using
 const NODE_TYPE_MAPPING = {
   ZOO_PERSISTENT: 0,
   ZOO_EPHEMERAL: 1,
